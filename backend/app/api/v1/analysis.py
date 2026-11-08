@@ -23,6 +23,7 @@ from backend.app.services.explainability import (
     generate_change_overlay,
     compute_explainability_summary
 )
+from backend.app.services.evaluation import evaluate_against_ground_truth
 
 logger = logging.getLogger("geointelligence.api.analysis")
 
@@ -94,6 +95,26 @@ def execute_change_detection_pipeline(
         xai_summary = compute_explainability_summary(prob_map, threshold=threshold)
         xai_summary.update(summary_stats.get("confidence_summary", {}))
         xai_summary["inference_latency_ms"] = latency_ms
+
+        # Ground Truth Scientific Evaluation (if available, e.g. OSCD Benchmark)
+        gt_path = None
+        if img1.band_metadata and "ground_truth_path" in img1.band_metadata:
+            gt_path = img1.band_metadata["ground_truth_path"]
+        elif img2.band_metadata and "ground_truth_path" in img2.band_metadata:
+            gt_path = img2.band_metadata["ground_truth_path"]
+        else:
+            for city_candidate in ["montpellier", "beirut", "lasvegas", "dubai", "rio"]:
+                if city_candidate in img1.filename.lower() or city_candidate in img2.filename.lower():
+                    candidate_mask = settings.MASKS_DIR / f"{city_candidate}_ground_truth.tif"
+                    if candidate_mask.exists():
+                        gt_path = str(candidate_mask)
+                        break
+
+        if gt_path:
+            eval_metrics = evaluate_against_ground_truth(binary_mask, gt_path)
+            if eval_metrics:
+                xai_summary["ground_truth_evaluation"] = eval_metrics
+                logger.info(f"Computed ground truth benchmark metrics for analysis {analysis_id}: F1={eval_metrics['metrics']['f1_score']}, IoU={eval_metrics['metrics']['iou']}")
 
         # 6. Save ChangeResult
         # Determine dominant overall change type
@@ -215,3 +236,23 @@ def get_analysis_overlay(analysis_id: str, db: Session = Depends(get_db)):
     if not res or not res.output_mask_path or not Path(res.output_mask_path).exists():
         raise HTTPException(status_code=404, detail="Overlay image not found")
     return FileResponse(res.output_mask_path, media_type="image/png")
+
+@router.get("/{analysis_id}/evaluation")
+def get_analysis_evaluation(analysis_id: str, db: Session = Depends(get_db)):
+    """
+    Returns empirical accuracy metrics evaluated directly against authentic ground truth masks
+    (e.g., from the OSCD benchmark).
+    """
+    res = db.query(ChangeResult).filter(ChangeResult.analysis_id == analysis_id).first()
+    if not res:
+        raise HTTPException(status_code=404, detail="Analysis result not found")
+
+    summary = res.confidence_summary or {}
+    evaluation = summary.get("ground_truth_evaluation")
+    if not evaluation:
+        return {
+            "has_ground_truth": False,
+            "message": "No ground truth annotations found for this image pair. To evaluate accuracy, analyze an OSCD benchmark scene."
+        }
+    return evaluation
+

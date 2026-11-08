@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.app.database import get_db
 from backend.app.models.image import SatelliteImage
 from backend.app.services.preprocessing import check_spatial_compatibility, align_and_load_rasters, assess_preprocessing_quality
+from backend.app.services.cloud_masking import cloud_engine
 
 router = APIRouter(prefix="/preprocessing", tags=["Preprocessing Engine"])
 
@@ -64,3 +65,20 @@ def run_preprocessing_check(payload: PreprocessRequest, db: Session = Depends(ge
             "resolution": img2.resolution
         }
     }
+
+@router.get("/cloud-mask/{image_id}")
+def inspect_image_cloud_mask(image_id: str, db: Session = Depends(get_db)):
+    """
+    Analyzes an image for cloud and cloud-shadow coverage using spectral thresholding.
+    Provides clear-ground observation percentage and flags whether SAR radar fallback is recommended.
+    """
+    img = db.query(SatelliteImage).filter(SatelliteImage.id == image_id).first()
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    result = cloud_engine.detect_clouds_and_shadows(img.file_path)
+    result["image_id"] = img.id
+    result["filename"] = img.filename
+    result["sensor"] = img.sensor
+    return result
+

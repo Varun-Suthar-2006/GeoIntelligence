@@ -5,7 +5,12 @@ import {
   Analysis,
   DashboardOverview,
   PreprocessingReport,
-  ReportItem
+  ReportItem,
+  STACHotspot,
+  STACGranule,
+  GroundTruthEvaluation,
+  MeteorologicalIntelligence,
+  AOITrackResult
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
@@ -106,6 +111,50 @@ export const api = {
   getAnalysisHeatmapUrl: (id: string): string => `${API_BASE}/analysis/${id}/heatmap`,
   getAnalysisOverlayUrl: (id: string): string => `${API_BASE}/analysis/${id}/overlay`,
 
+  getAnalysisEvaluation: (id: string): Promise<GroundTruthEvaluation> =>
+    fetch(`${API_BASE}/analysis/${id}/evaluation`).then((res) => handleResponse<GroundTruthEvaluation>(res)),
+
+  // Satellite STAC Catalog (Live Orbital Search)
+  getStacHotspots: (): Promise<STACHotspot[]> =>
+    fetch(`${API_BASE}/stac/hotspots`).then((res) => handleResponse<STACHotspot[]>(res)),
+
+  searchStacGranules: (params: {
+    bbox: number[];
+    datetime_range?: string;
+    max_cloud_cover?: number;
+    limit?: number;
+  }): Promise<{ status: string; granule_count: number; granules: STACGranule[] }> =>
+    fetch(`${API_BASE}/stac/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }).then((res) => handleResponse<{ status: string; granule_count: number; granules: STACGranule[] }>(res)),
+
+  // Environmental & Meteorological Intelligence
+  getEnvironmentalConditions: (params: {
+    lat?: number;
+    lon?: number;
+    bbox?: number[];
+    date?: string;
+  }): Promise<MeteorologicalIntelligence> =>
+    fetch(`${API_BASE}/environmental/conditions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }).then((res) => handleResponse<MeteorologicalIntelligence>(res)),
+
+  trackAoiChanges: (params: {
+    bbox: number[];
+    model_id?: string;
+    threshold?: number;
+    min_area_m2?: number;
+  }): Promise<AOITrackResult> =>
+    fetch(`${API_BASE}/environmental/aoi-track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }).then((res) => handleResponse<AOITrackResult>(res)),
+
   // Models
   getModels: (): Promise<AIModel[]> =>
     fetch(`${API_BASE}/models`).then((res) => handleResponse<AIModel[]>(res)),
@@ -129,4 +178,15 @@ export const api = {
     }).then((res) => handleResponse<ReportItem>(res)),
 
   getReportDownloadUrl: (id: string): string => `${API_BASE}/reports/${id}`,
+
+  // SAR Radar & Cloud Masking Extensions
+  detectSarFlood: (params?: { bbox?: number[]; flood_threshold_db?: number }): Promise<any> =>
+    fetch(`${API_BASE}/environmental/sar-flood-detect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params || {}),
+    }).then((res) => handleResponse<any>(res)),
+
+  inspectCloudMask: (imageId: string): Promise<any> =>
+    fetch(`${API_BASE}/preprocessing/cloud-mask/${imageId}`).then((res) => handleResponse<any>(res)),
 };

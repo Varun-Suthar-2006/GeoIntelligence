@@ -15,6 +15,8 @@ from backend.app.api.v1.geospatial import router as geospatial_router
 from backend.app.api.v1.models import router as models_router
 from backend.app.api.v1.reports import router as reports_router
 from backend.app.api.v1.dashboard import router as dashboard_router
+from backend.app.api.v1.stac import router as stac_router
+from backend.app.api.v1.environmental import router as environmental_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,6 +61,8 @@ app.include_router(geospatial_router, prefix=settings.API_V1_STR)
 app.include_router(models_router, prefix=settings.API_V1_STR)
 app.include_router(reports_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
+app.include_router(stac_router, prefix=settings.API_V1_STR)
+app.include_router(environmental_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

@@ -18,9 +18,13 @@ export interface SatelliteImage {
     max_lon: number;
   };
   band_metadata?: {
-    bands: Array<{ band_index: number; dtype: string; nodata?: any }>;
+    bands?: Array<{ band_index: number; dtype: string; nodata?: any }>;
     driver?: string;
     nodata?: any;
+    city?: string;
+    ground_truth_path?: string;
+    change_description?: string;
+    [key: string]: any;
   };
   created_at: string;
 }
@@ -160,3 +164,111 @@ export interface PreprocessingReport {
   earlier_image: Record<string, any>;
   later_image: Record<string, any>;
 }
+
+export interface STACHotspot {
+  id: string;
+  name: string;
+  category: string;
+  bbox: [number, number, number, number];
+  default_date_range: string;
+  description: string;
+}
+
+export interface STACGranule {
+  id: string;
+  datetime: string;
+  cloud_cover: number;
+  platform: string;
+  grid_code?: string;
+  sun_elevation?: number;
+  thumbnail_url?: string;
+  visual_url?: string;
+  bbox: number[];
+  geometry?: any;
+  bands?: Record<string, string>;
+}
+
+export interface GroundTruthEvaluation {
+  has_ground_truth: boolean;
+  message?: string;
+  confusion_matrix?: {
+    true_positives: number;
+    false_positives: number;
+    false_negatives: number;
+    true_negatives: number;
+  };
+  metrics?: {
+    precision: number;
+    recall: number;
+    specificity: number;
+    f1_score: number;
+    iou: number;
+    overall_accuracy: number;
+    cohen_kappa: number;
+  };
+  area_comparison?: {
+    ground_truth_pixels: number;
+    predicted_pixels: number;
+    ground_truth_area_ha: number;
+    predicted_area_ha: number;
+    area_error_percentage: number;
+  };
+}
+
+export interface MeteorologicalIntelligence {
+  source: string;
+  latitude: number;
+  longitude: number;
+  timestamp?: string;
+  temperature_c: number;
+  temperature_f: number;
+  apparent_temperature_c: number;
+  relative_humidity_pct: number;
+  cloud_cover_pct: number;
+  precipitation_mm: number;
+  surface_pressure_hpa: number;
+  wind: {
+    speed_kmh: number;
+    speed_knots: number;
+    direction_degrees: number;
+    direction_cardinal: string;
+    gusts_kmh: number;
+  };
+  condition: string;
+  satellite_viability: {
+    viability_score: number;
+    viability_grade: string;
+    recommendation: string;
+  };
+}
+
+export interface AOITrackResult {
+  status: string;
+  aoi_spatial: {
+    bbox: number[];
+    centroid: { lat: number; lon: number };
+    area_hectares: number;
+    area_sq_km: number;
+    area_sq_meters: number;
+    perimeter_meters: number;
+    crs_used: string;
+  };
+  meteorological_intelligence: MeteorologicalIntelligence;
+  satellite_scenes_evaluated: {
+    earlier_scene: { id: string; filename: string; sensor: string; date?: string };
+    later_scene: { id: string; filename: string; sensor: string; date?: string };
+    model_used: string;
+    inference_latency_ms: number;
+  };
+  change_quantification: {
+    total_changed_ha: number;
+    total_changed_sq_km: number;
+    polygon_count: number;
+    change_percentage_of_scene: number;
+    dominant_transition: string;
+    class_breakdown_ha: Record<string, number>;
+  };
+  environmental_correlation_insights: string[];
+  geojson_polygons: any;
+}
+

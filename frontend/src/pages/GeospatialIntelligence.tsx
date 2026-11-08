@@ -52,6 +52,7 @@ export const GeospatialIntelligence: React.FC = () => {
     'Agricultural Change': true,
     'Unclassified Change': true,
   });
+  const [basemap, setBasemap] = useState<'esri' | 'dark' | 'osm'>('esri');
 
   useEffect(() => {
     api.getAnalyses().then((res) => {
@@ -264,17 +265,61 @@ export const GeospatialIntelligence: React.FC = () => {
 
       {/* Main Geographical Map */}
       <div className="flex-1 relative h-full">
+        {/* Floating Basemap Selector */}
+        <div className="absolute top-4 right-4 z-[1000] flex bg-surface/90 backdrop-blur-md border border-surface-border rounded-xl p-1 shadow-lg text-[10px] font-mono">
+          <button
+            onClick={() => setBasemap('esri')}
+            className={`px-2.5 py-1 rounded-lg transition-all ${
+              basemap === 'esri' ? 'bg-primary text-white font-semibold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Satellite Imagery
+          </button>
+          <button
+            onClick={() => setBasemap('dark')}
+            className={`px-2.5 py-1 rounded-lg transition-all ${
+              basemap === 'dark' ? 'bg-primary text-white font-semibold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Dark Tactical
+          </button>
+          <button
+            onClick={() => setBasemap('osm')}
+            className={`px-2.5 py-1 rounded-lg transition-all ${
+              basemap === 'osm' ? 'bg-primary text-white font-semibold shadow-sm' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Street Map
+          </button>
+        </div>
+
         <MapContainer
           center={[43.61, 1.45]}
           zoom={13}
           className="w-full h-full"
           zoomControl={true}
         >
-          <TileLayer
-            attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={18}
-          />
+          {basemap === 'esri' && (
+            <TileLayer
+              attribution="Tiles &copy; Esri &mdash; World Imagery"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={18}
+            />
+          )}
+          {basemap === 'dark' && (
+            <TileLayer
+              attribution="&copy; CartoDB Dark Matter"
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              maxZoom={19}
+            />
+          )}
+          {basemap === 'osm' && (
+            <TileLayer
+              attribution="&copy; OpenStreetMap contributors"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxZoom={19}
+            />
+          )}
 
           {geojson && (
             <>

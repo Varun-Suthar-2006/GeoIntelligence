@@ -12,6 +12,7 @@ from backend.app.models.dataset import Dataset
 from backend.app.models.image import SatelliteImage
 from backend.app.models.ai_model import AIModel
 from backend.app.services.acquisition import generate_preview_image, extract_raster_metadata
+from backend.app.services.oscd_loader import ingest_oscd_benchmark
 from backend.app.ml.train import train_siamese_unet
 
 logger = logging.getLogger("geointelligence.sample_data")
@@ -250,4 +251,12 @@ def seed_sample_data(db: Session):
         db.add(img2)
 
     db.commit()
+
+    # 4. Ingest Authentic OSCD Sentinel-2 Benchmark Scenes with Ground Truth Masks
+    try:
+        logger.info("Verifying authentic OSCD Sentinel-2 benchmark scenes...")
+        ingest_oscd_benchmark(db, max_scenes=5)
+    except Exception as e:
+        logger.warning(f"Could not load online OSCD benchmark scenes ({e}); proceeding with local images.")
+
     logger.info("Sample datasets, models, and multi-temporal satellite images seeded successfully.")

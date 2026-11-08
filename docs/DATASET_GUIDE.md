@@ -21,11 +21,20 @@ GeoIntelligence AI natively reads multi-band GeoTIFFs, resampling 20m SWIR bands
 ## 2. Benchmark Datasets
 
 ### 2.1 OSCD (Onera Satellite Change Detection)
-- **Source**: ONERA (The French Aerospace Lab) & IEEE GRSS
-- **Sensor**: Sentinel-2 Level-1C / Level-2A
-- **Scenes**: 24 global pairs (e.g., Rio, Montpellier, Las Vegas, Paris, Beirut)
-- **Focus**: Urban change, construction, vegetation disturbance
-- **License**: Academic and research open-access
+- **Source**: ONERA (The French Aerospace Lab) & IEEE GRSS (Daudt et al., 2018)
+- **Sensor**: Sentinel-2 Level-2A Multi-Spectral Instrument (MSI)
+- **Included Ingested Benchmark Pairs in Catalog**:
+  1. **Montpellier, France** (`sentinel2_montpellier_t1.tif`, `sentinel2_montpellier_t2.tif`): 390x408 px, UTM 31N. Urban development and vineyard conversion. Includes official ground truth mask `data/masks/montpellier_ground_truth.tif`.
+  2. **Beirut, Lebanon** (`sentinel2_beirut_t1.tif`, `sentinel2_beirut_t2.tif`): 476x458 px, UTM 36N. Port redevelopment and coastal construction. Includes ground truth mask `data/masks/beirut_ground_truth.tif`.
+  3. **Las Vegas, Nevada, USA** (`sentinel2_lasvegas_t1.tif`, `sentinel2_lasvegas_t2.tif`): 525x471 px, UTM 11N. Desert residential expansion and highway construction. Includes ground truth mask `data/masks/lasvegas_ground_truth.tif`.
+  4. **Dubai, UAE** (`sentinel2_dubai_t1.tif`, `sentinel2_dubai_t2.tif`): 788x1015 px, UTM 40N. Coastline reclamation and skyscraper developments. Includes ground truth mask `data/masks/dubai_ground_truth.tif`.
+  5. **Rio de Janeiro, Brazil** (`sentinel2_rio_t1.tif`, `sentinel2_rio_t2.tif`): 688x639 px, UTM 23S. Transport corridors and coastal growth. Includes ground truth mask `data/masks/rio_ground_truth.tif`.
+
+### 2.2 Live Global Orbital STAC Acquisition (AWS Earth Search)
+- **API Endpoint**: `https://earth-search.aws.element84.com/v1/search`
+- **Collection**: `sentinel-2-l2a`
+- **Capabilities**: Real-time querying by coordinates or bounding box, dynamic cloud cover filtering, preview thumbnail extraction, and direct Cloud-Optimized GeoTIFF (COG) access.
+- **Integrated Research Hotspots**: Montpellier (France), Valencia Flash Floods (Spain), Rondônia Deforestation (Brazil), Dubai Coastline (UAE), Lake Mead Reservoir (USA), and San Francisco Bay Wetlands (USA).
 
 ### 2.2 Landsat-8/9 OLI
 - **Bands**: Band 2 (Blue), Band 3 (Green), Band 4 (Red), Band 5 (NIR)

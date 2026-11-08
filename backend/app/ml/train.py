@@ -73,6 +73,68 @@ class SyntheticSatelliteChangeDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         t1, t2, mask = self.samples[idx]
+class OSCDPatchDataset(Dataset):
+    """
+    Dataset loader sampling real multi-temporal image patches and ground-truth masks
+    from authentic Sentinel-2 Level-2A benchmark scenes.
+    """
+    def __init__(self, patch_size: int = 128, patches_per_scene: int = 25, is_validation: bool = False):
+        super().__init__()
+        import rasterio
+        self.samples = []
+        oscd_dir = settings.SAMPLES_DIR / "oscd"
+        masks_dir = settings.MASKS_DIR
+
+        cities = ["montpellier", "lasvegas", "dubai", "rio"] if not is_validation else ["beirut"]
+
+        for city in cities:
+            t1_file = oscd_dir / f"sentinel2_{city}_t1.tif"
+            t2_file = oscd_dir / f"sentinel2_{city}_t2.tif"
+            gt_file = masks_dir / f"{city}_ground_truth.tif"
+
+            if not (t1_file.exists() and t2_file.exists() and gt_file.exists()):
+                continue
+
+            try:
+                with rasterio.open(t1_file) as s1, rasterio.open(t2_file) as s2, rasterio.open(gt_file) as sg:
+                    arr1 = s1.read([1, 2, 3]).astype(np.float32) / 255.0 # (3, H, W)
+                    arr2 = s2.read([1, 2, 3]).astype(np.float32) / 255.0
+                    mask = (sg.read(1) > 0).astype(np.float32)[np.newaxis, ...] # (1, H, W)
+
+                _, H, W = arr1.shape
+                if H <= patch_size or W <= patch_size:
+                    continue
+
+                # Locate change pixel indices for biased positive patch sampling
+                change_ys, change_xs = np.where(mask[0] > 0)
+                has_changes = len(change_ys) > 0
+
+                for _ in range(patches_per_scene):
+                    # 60% chance to center or crop around a known ground-truth change
+                    if has_changes and np.random.rand() < 0.60:
+                        c_idx = np.random.randint(0, len(change_ys))
+                        cy, cx = change_ys[c_idx], change_xs[c_idx]
+                        y = max(0, min(H - patch_size, cy - patch_size // 2))
+                        x = max(0, min(W - patch_size, cx - patch_size // 2))
+                    else:
+                        y = np.random.randint(0, H - patch_size)
+                        x = np.random.randint(0, W - patch_size)
+
+                    p1 = arr1[:, y:y+patch_size, x:x+patch_size]
+                    p2 = arr2[:, y:y+patch_size, x:x+patch_size]
+                    pm = mask[:, y:y+patch_size, x:x+patch_size]
+
+                    self.samples.append((p1, p2, pm))
+            except Exception as e:
+                logger.warning(f"Error sampling patches from {city}: {e}")
+
+        logger.info(f"OSCDPatchDataset (val={is_validation}): loaded {len(self.samples)} real Sentinel-2 patches.")
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        t1, t2, mask = self.samples[idx]
         return torch.from_numpy(t1), torch.from_numpy(t2), torch.from_numpy(mask)
 
 def train_siamese_unet(
@@ -83,13 +145,24 @@ def train_siamese_unet(
 ) -> Dict[str, Any]:
     """
     Executes training and evaluation loop for Siamese U-Net.
+    Prioritizes authentic Sentinel-2 OSCD benchmark patches whenever available.
     Saves trained weights and returns actual scientific performance metrics.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Training Siamese U-Net on device: {device}")
     
-    train_dataset = SyntheticSatelliteChangeDataset(num_samples=48, size=256, seed=101)
-    val_dataset = SyntheticSatelliteChangeDataset(num_samples=16, size=256, seed=202)
+    # Check if real OSCD imagery is available
+    oscd_train = OSCDPatchDataset(patch_size=128, patches_per_scene=35, is_validation=False)
+    if len(oscd_train) >= 20:
+        logger.info(f"Training on {len(oscd_train)} real Sentinel-2 benchmark patches from OSCD.")
+        train_dataset = oscd_train
+        val_dataset = OSCDPatchDataset(patch_size=128, patches_per_scene=20, is_validation=True)
+        if len(val_dataset) == 0:
+            val_dataset = oscd_train
+    else:
+        logger.info("Real OSCD patches insufficient; falling back to scientific synthetic generator.")
+        train_dataset = SyntheticSatelliteChangeDataset(num_samples=48, size=256, seed=101)
+        val_dataset = SyntheticSatelliteChangeDataset(num_samples=16, size=256, seed=202)
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
